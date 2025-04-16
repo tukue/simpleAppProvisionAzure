@@ -1,14 +1,16 @@
 # Azure Infrastructure with Terraform
 
-This project deploys a secure Azure infrastructure consisting of a Linux VM and SQL Database with proper networking and security configurations.
+This project deploys a secure Azure infrastructure consisting of Linux VM Scale Sets, SQL Database, and Key Vault integration with proper networking and security configurations.
 
 ## Architecture
 
 The infrastructure includes:
-- Virtual Network with custom subnet
-- Linux Virtual Machine
-- Azure SQL Server and Database
-- Network Security Groups
+- Virtual Network with custom subnets (app, database, management)
+- Linux Virtual Machine Scale Set for high availability
+- Azure SQL Server and Database with geo-replication
+- Network Security Groups with strict access rules
+- Azure Bastion for secure VM access
+- Azure Key Vault for secrets management
 - Service Endpoints for secure database access
 
 ## Prerequisites
@@ -18,114 +20,182 @@ The infrastructure includes:
 - SSH key pair for VM access
 - Azure subscription with required permissions
 
-## Quick Start
+## Security Setup
 
-1. **Clone the repository**
+### 1. Create Azure Service Principal
+
+```bash
+# Login to Azure
+az login
+
+# Create Service Principal
+az ad sp create-for-rbac \
+  --name "terraform-sp" \
+  --role "Contributor" \
+  --scopes "/subscriptions/YOUR_SUBSCRIPTION_ID"
+```
+
+### 2. Set up Key Vault
+
+```bash
+# Create Resource Group
+az group create --name "rg-keyvault" --location "swedencentral"
+
+# Create Key Vault
+az keyvault create \
+    --name "kv-terraform-secrets" \
+    --resource-group "rg-keyvault" \
+    --location "swedencentral"
+
+# Store Service Principal Secret
+az keyvault secret set \
+    --vault-name "kv-terraform-secrets" \
+    --name "AZURE-CLIENT-SECRET" \
+    --value "YOUR_CLIENT_SECRET"
+```
+
+### 3. Configure Environment
+
+Create a `.env` file based on `env.example`:
+```bash
+AZURE_SUBSCRIPTION_ID=your-subscription-id
+AZURE_TENANT_ID=your-tenant-id
+AZURE_CLIENT_ID=your-client-id
+AZURE_CLIENT_SECRET=your-client-secret
+ENVIRONMENT=dev
+REGION=swedencentral
+RESOURCE_GROUP_NAME=your-resource-group
+```
+
+## Deployment
+
+1. **Clone and Initialize**
    ```bash
    git clone <repository-url>
    cd <project-directory>
-   ```
-
-2. **Login to Azure**
-   ```bash
-   az login
-   ```
-
-3. **Initialize Terraform**
-   ```bash
    terraform init
    ```
 
-4. **Configure Variables**
+2. **Configure Variables**
    Create a `terraform.tfvars` file:
    ```hcl
-   resource_group_name = "your-rg-name"
-   location           = "swedencentral"
    environment        = "dev"
-   sql_admin_login    = "sqladmin"
+   location          = "swedencentral"
    ```
 
-5. **Deploy Infrastructure**
+3. **Deploy Infrastructure**
    ```bash
-   terraform plan
-   terraform apply
+   ./terraform.sh plan
+   ./terraform.sh apply
    ```
 
 ## Infrastructure Components
 
-### Networking
-- Virtual Network 
-- Subnet (
-- Network Security Group with rules for:
-  - SSH (port 22)
-  - SQL Server (port 1433)
-
 ### Compute
-- Linux VM (Ubuntu 18.04 LTS)
-- Standard_DS1_v2 size
-- SSH key authentication
+- Linux VM Scale Set
+  - Ubuntu 18.04 LTS
+  - Standard_DS2_v2 size
+  - Auto-scaling enabled
+  - Zone redundant deployment
+  - Rolling updates configuration
+
+### Networking
+- Virtual Network with segregated subnets:
+  - Application subnet
+  - Database subnet
+  - Management subnet
+- Azure Bastion Host
+- Network Security Groups with:
+  - SSH access via Bastion
+  - SQL Server access
+  - Application-specific rules
 
 ### Database
 - Azure SQL Server
-- Basic tier database
-- Service Endpoint connectivity
-- Firewall rules for VM access
+  - Geo-replication enabled
+  - Azure AD authentication
+  - TLS 1.2 enforced
+- SQL Database
+  - Business Critical tier
+  - Zone redundant
+  - Automated backups
+  - Long-term retention
 
-## Security Features
+### Security
+- Azure Key Vault integration
+- Service Principal with minimal permissions
+- Network Security Groups
+- Azure Bastion for secure VM access
+- Service Endpoints
+- Azure AD integration
 
-- Network Security Groups for traffic control
-- Service Endpoints for secure database access
-- SSH key-based authentication for VM
-- Automated password generation for SQL Server
-- Firewall rules limiting database access
-
-## Accessing Resources
+## Resource Access
 
 ### VM Access
 ```bash
-# SSH into the VM
-ssh adminuser@$(terraform output -raw public_ip_address)
+# Access VM through Azure Bastion
+az network bastion ssh \
+    --name "bastion-dev" \
+    --resource-group "your-rg" \
+    --target-resource-id $(terraform output -raw vmss_id) \
+    --auth-type ssh-key \
+    --username adminuser \
+    --ssh-key ~/.ssh/id_rsa
 ```
 
 ### Database Access
-1. Install SQL Server tools on the VM:
-   ```bash
-   curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-   curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
-   sudo apt-get update
-   sudo apt-get install -y mssql-tools unixodbc-dev
-   ```
+```bash
+# Get connection string
+terraform output sql_connection_string
 
-2. Connect to database:
-   ```bash
-   sqlcmd -S <server-fqdn> -U sqladmin -P <password> -d <database-name>
-   ```
-   (Get connection details from terraform outputs)
-
-## Available Terraform Outputs
-
-- `public_ip_address`: VM's public IP
-- `vm_name`: Name of the virtual machine
-- `sql_server_name`: SQL Server name
-- `database_name`: Database name
-- `sql_server_fqdn`: SQL Server fully qualified domain name
-- `sql_connection_string`: Complete database connection string
-- `sql_credentials`: Database access credentials
+# Connect using SQL tools
+sqlcmd -S $(terraform output -raw sql_server_fqdn) \
+       -U $(terraform output -raw sql_admin_username) \
+       -P $(terraform output -raw sql_admin_password) \
+       -d $(terraform output -raw database_name)
+```
 
 ## Maintenance
 
-### Adding Resources
-Follow Terraform best practices:
-1. Add resource definitions to appropriate `.tf` files
-2. Add variables to `variables.tf`
-3. Add outputs to `outputs.tf`
-4. Update README.md with new components
+### Secret Rotation
+```bash
+# Rotate Service Principal secret
+az ad sp credential reset \
+    --name "terraform-sp" \
+    --append \
+    --credential-description "terraform-secret-$(date +%Y%m%d)" \
+    --query password -o tsv | \
+az keyvault secret set \
+    --vault-name "kv-terraform-secrets" \
+    --name "AZURE-CLIENT-SECRET" \
+    --value @-
+```
 
-### Updating Resources
-1. Modify the relevant `.tf` files
-2. Run `terraform plan` to review changes
-3. Apply changes with `terraform apply`
+### Infrastructure Updates
+1. Update Terraform configurations
+2. Run plan to review changes:
+   ```bash
+   ./terraform.sh plan
+   ```
+3. Apply changes:
+   ```bash
+   ./terraform.sh apply
+   ```
 
+### Monitoring
+- Azure Monitor integration
+- Log Analytics workspace
+- VM Scale Set metrics
+- SQL Server auditing
+- Key Vault logging
+
+## Disaster Recovery
+
+- Geo-replicated SQL Database
+- Zone redundant VM Scale Set
+- Automated backups
+- Point-in-time recovery
+- Resource locks on critical components
 
 ## Contributing
 
@@ -133,6 +203,15 @@ Follow Terraform best practices:
 2. Create a feature branch
 3. Commit changes
 4. Create a pull request
+
+## Security Notes
+
+- Never commit sensitive data
+- Use Key Vault for all secrets
+- Rotate credentials regularly
+- Monitor access logs
+- Keep dependencies updated
+- Follow least privilege principle
 
 ## License
 
