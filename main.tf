@@ -246,37 +246,6 @@ resource "random_password" "sql_admin_password" {
   min_special      = 1
 }
 
-# Create Azure SQL Server
-resource "azurerm_mssql_server" "sql_server" {
-  name                         = "sql-${var.environment}-${random_string.unique.result}"
-  resource_group_name          = azurerm_resource_group.rg.name
-  location                     = azurerm_resource_group.rg.location
-  version                      = "12.0"
-  administrator_login          = var.sql_admin_login
-  administrator_login_password = random_password.sql_admin_password.result
-
-  public_network_access_enabled = true
-
-  tags = {
-    environment = var.environment
-  }
-}
-
-# Create SQL Database
-resource "azurerm_mssql_database" "database" {
-  name           = "db-${var.environment}"
-  server_id      = azurerm_mssql_server.sql_server.id
-  collation      = "SQL_Latin1_General_CP1_CI_AS"
-  license_type   = "LicenseIncluded"
-  max_size_gb    = 2
-  sku_name       = "Basic"
-  zone_redundant = false
-
-  tags = {
-    environment = var.environment
-  }
-}
-
 # Allow Azure services to access the SQL Server
 resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
   name             = "AllowAzureServices"
@@ -314,6 +283,10 @@ resource "azurerm_mssql_firewall_rule" "allow_subnet" {
   start_ip_address = cidrhost(azurerm_subnet.subnet.address_prefixes[0], 0)
   end_ip_address   = cidrhost(azurerm_subnet.subnet.address_prefixes[0], -1)
 }
+
+
+
+
 
 
 
