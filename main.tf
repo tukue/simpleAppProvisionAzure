@@ -41,7 +41,7 @@ locals {
   common_tags = {
     environment = var.environment
     project     = "simpleAppProvisionAzure"
-    owner       = "YourNameOrTeam" // Replace with your name or team
+    owner       = "DevOps Team" 
   }
 }
 
@@ -144,6 +144,7 @@ resource "azurerm_resource_group" "rg" {
   location = var.region
   tags     = local.common_tags
 }
+
 
 
 
