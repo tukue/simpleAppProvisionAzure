@@ -188,9 +188,6 @@ az keyvault secret set \
 - VM Scale Set metrics
 - SQL Server auditing
 - Key Vault logging
-
-## Disaster Recovery
-
 - Geo-replicated SQL Database
 - Zone redundant VM Scale Set
 - Automated backups
