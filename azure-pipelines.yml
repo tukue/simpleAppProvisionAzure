@@ -1,0 +1,49 @@
+trigger:
+- main # Replace with your default branch name
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # Azure Service Principal credentials
+  AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+  AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+  AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+  AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+
+  # Terraform variables
+  ENVIRONMENT: $(ENVIRONMENT)
+  REGION: $(REGION)
+  RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: '$(AZURE_SUBSCRIPTION_ID)'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az login --service-principal \
+        --username $(AZURE_CLIENT_ID) \
+        --password $(AZURE_CLIENT_SECRET) \
+        --tenant $(AZURE_TENANT_ID)
+
+- script: |
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
+    apt update && apt install terraform
+  displayName: 'Install Terraform'
+
+- script: |
+    terraform init
+    terraform plan -out=tfplan
+  displayName: 'Terraform Init and Plan'
+
+- script: |
+    terraform apply -auto-approve tfplan
+  displayName: 'Terraform Apply'
