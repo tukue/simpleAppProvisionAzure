@@ -76,7 +76,12 @@ variable "vm_name" {
 variable "sql_admin_login" {
   description = "SQL Server admin username"
   default     = "sqladmin"
-} 
+}
+
+variable "public_ip_address" {
+  description = "Public IP address for the VM or Bastion"
+  type        = string
+}
 
 
 
