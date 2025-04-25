@@ -238,6 +238,62 @@ resource "azurerm_network_interface_security_group_association" "vm_nic_nsg" {
   network_security_group_id = azurerm_network_security_group.vm_nsg.id
 }
 
+resource "azurerm_monitor_diagnostic_setting" "sql_diagnostics" {
+  name                       = "sql-diagnostics"
+  target_resource_id         = azurerm_mssql_server.sql_server.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspace.id
+
+  metric {
+    category = "AllMetrics"
+  }
+}
+
+resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
+  name                = "app-vmss-${var.environment}"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "Standard_B1s" # Smaller VM size
+  instances           = 1              # Reduce the number of instances
+
+  admin_username = "azureuser"
+  admin_password = random_password.vm_admin_password.result
+  disable_password_authentication = false
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
+  }
+
+  network_interface {
+    name    = "vmss-nic-${var.environment}"
+    primary = true
+
+    ip_configuration {
+      name      = "internal"
+      subnet_id = azurerm_subnet.app_subnet.id
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "azurerm_storage_account" "example" {
+  name                     = "storage${random_string.unique.result}"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = var.region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  tags                     = local.common_tags
+}
+
+
 
 
 
