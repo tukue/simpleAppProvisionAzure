@@ -293,6 +293,45 @@ resource "azurerm_storage_account" "example" {
   tags                     = local.common_tags
 }
 
+resource "azurerm_monitor_metric_alert" "cpu_alert" {
+  name                = "cpu-alert-${var.environment}"
+  resource_group_name = azurerm_resource_group.rg.name
+  scopes              = [azurerm_linux_virtual_machine_scale_set.vmss.id]
+  description         = "Alert for high CPU usage"
+  severity            = 2
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+
+  criteria {
+    metric_namespace = "Microsoft.Compute/virtualMachineScaleSets"
+    metric_name      = "Percentage CPU"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = 80
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.alert_action_group.id
+  }
+}
+
+
+
+
+resource "azurerm_monitor_action_group" "alert_action_group" {
+  name                = "alert-action-group-${var.environment}"
+  resource_group_name = azurerm_resource_group.rg.name
+  short_name          = "alertgrp"
+
+  email_receiver {
+    name          = "email-alert"
+    email_address = "your-email@example.com"
+    use_common_alert_schema = true
+  }
+
+  tags = local.common_tags
+}
+
 
 
 
