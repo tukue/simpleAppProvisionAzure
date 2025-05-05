@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 3.70"
     }
     random = {
       source  = "hashicorp/random"
@@ -71,6 +71,21 @@ resource "azurerm_mssql_server" "sql_server" {
   administrator_login          = var.sql_admin_login
   administrator_login_password = random_password.sql_admin_password.result
   tags                         = local.common_tags
+}
+
+resource "azurerm_mssql_database" "sql_database" {
+  name                = "sql-db-${var.environment}"
+  server_id           = azurerm_mssql_server.sql_server.id
+  collation           = "SQL_Latin1_General_CP1_CI_AS"
+  max_size_gb         = 10
+  sku_name            = "S1"
+  tags                = local.common_tags
+
+  long_term_retention_policy {
+    weekly_retention  = "P1W"
+    monthly_retention = "P1M"
+    yearly_retention  = "P1Y"
+  }
 }
 
 # Allow Azure services to access the SQL Server
@@ -252,8 +267,8 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   name                = "app-vmss-${var.environment}"
   location            = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  sku                 = "Standard_B1s" # Smaller VM size
-  instances           = 1              # Reduce the number of instances
+  sku                 = "Standard_B1s"
+  instances           = 1
 
   admin_username = "azureuser"
   admin_password = random_password.vm_admin_password.result
@@ -281,6 +296,12 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [
+      network_interface[0].ip_configuration[0].primary
+    ]
+  }
+
   tags = local.common_tags
 }
 
@@ -290,7 +311,8 @@ resource "azurerm_storage_account" "example" {
   location                 = var.region
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  tags                     = local.common_tags
+  https_traffic_only_enabled = true
+  tags                     = var.common_tags
 }
 
 resource "azurerm_monitor_metric_alert" "cpu_alert" {
@@ -315,9 +337,6 @@ resource "azurerm_monitor_metric_alert" "cpu_alert" {
   }
 }
 
-
-
-
 resource "azurerm_monitor_action_group" "alert_action_group" {
   name                = "alert-action-group-${var.environment}"
   resource_group_name = azurerm_resource_group.rg.name
@@ -331,6 +350,8 @@ resource "azurerm_monitor_action_group" "alert_action_group" {
 
   tags = local.common_tags
 }
+
+
 
 
 
