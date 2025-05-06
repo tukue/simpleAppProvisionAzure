@@ -1,13 +1,16 @@
 variable "environment" {
-  type = string
+  description = "Environment name (dev, test, prod)"
+  type        = string
 }
 
 variable "region" {
-  type = string
+  description = "Azure region to deploy resources"
+  type        = string
 }
 
 variable "resource_group_name" {
-  type = string
+  description = "Name of the resource group"
+  type        = string
 }
 
 variable "common_tags" {

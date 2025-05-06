@@ -70,15 +70,14 @@ module "networking" {
 
 # Database Module
 module "database" {
-  source = "./modules/database"
-
+  source              = "./modules/database"
   environment         = var.environment
-  region             = var.region
+  region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags        = local.common_tags
-  unique_suffix      = random_string.unique.result
-  sql_admin_login    = var.sql_admin_login
-  subnet_id          = module.networking.app_subnet_id
+  unique_suffix       = random_string.unique.result
+  sql_admin_login     = var.sql_admin_login
+  subnet_id           = azurerm_subnet.app_subnet.id
+  common_tags         = local.common_tags
 }
 
 # Monitoring Module
@@ -86,11 +85,16 @@ module "monitoring" {
   source = "./modules/monitoring"
 
   environment         = var.environment
-  region             = var.region
+  region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags        = local.common_tags
-  unique_suffix      = random_string.unique.result
-  sql_server_id      = module.database.sql_server_id
+  common_tags         = local.common_tags
+  unique_suffix       = random_string.unique.result
+  sql_server_id       = module.database.sql_server_id
+
+  azure_subscription_id = var.azure_subscription_id
+  azure_tenant_id       = var.azure_tenant_id
+  azure_client_id       = var.azure_client_id
+  azure_client_secret   = var.azure_client_secret
 }
 
 # Bastion Host
