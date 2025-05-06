@@ -1,5 +1,15 @@
-# Remove the duplicate required_providers block
-# The required_providers block is already defined in versions.tf
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+}
 
 # Configure Azure Provider
 provider "azurerm" {
@@ -20,10 +30,11 @@ provider "azurerm" {
     }
   }
   subscription_id = var.azure_subscription_id
-  tenant_id       = var.azure_tenant_id
-  client_id       = var.azure_client_id
-  client_secret   = var.azure_client_secret
+  tenant_id      = var.azure_tenant_id
+  client_id      = var.azure_client_id
+  client_secret  = var.azure_client_secret
 }
+
 
 locals {
   common_tags = {
@@ -132,3 +143,4 @@ resource "azurerm_resource_group" "rg" {
   location = var.region
   tags     = local.common_tags
 }
+

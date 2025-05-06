@@ -88,7 +88,7 @@ module "monitoring" {
   environment         = var.environment
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags         = local.common_tags
+  common_tags         = var.common_tags
   unique_suffix       = random_string.unique.result
   sql_server_id       = module.database.sql_server_id
 
@@ -96,6 +96,7 @@ module "monitoring" {
   azure_tenant_id       = var.azure_tenant_id
   azure_client_id       = var.azure_client_id
   azure_client_secret   = var.azure_client_secret
+  sql_admin_login       = var.sql_admin_login
 }
 
 # Outputs

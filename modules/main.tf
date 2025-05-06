@@ -87,7 +87,7 @@ module "monitoring" {
   environment         = var.environment
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags         = local.common_tags
+  common_tags         = var.common_tags
   unique_suffix       = random_string.unique.result
   sql_server_id       = module.database.sql_server_id
 
@@ -95,6 +95,7 @@ module "monitoring" {
   azure_tenant_id       = var.azure_tenant_id
   azure_client_id       = var.azure_client_id
   azure_client_secret   = var.azure_client_secret
+  sql_admin_login       = var.sql_admin_login
 }
 
 # Bastion Host
@@ -119,6 +120,16 @@ resource "azurerm_bastion_host" "bastion" {
     subnet_id           = module.networking.bastion_subnet_id
     public_ip_address_id = azurerm_public_ip.bastion_pip.id
   }
+}
+
+# Log Analytics Workspace
+resource "azurerm_log_analytics_workspace" "workspace" {
+  name                = "law-${var.environment}-${var.unique_suffix}"
+  location            = var.region
+  resource_group_name = var.resource_group_name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  tags                = var.common_tags
 }
 
 # Add outputs for important resources
