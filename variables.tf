@@ -76,4 +76,9 @@ variable "region" {
   description = "Azure region to deploy resources"
   type        = string
   default     = "swedencentral"
+} 
+
+variable "key_vault_id" {
+  description = "ID of the Azure Key Vault"
+  type        = string
 }

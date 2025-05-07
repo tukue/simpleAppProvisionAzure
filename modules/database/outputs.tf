@@ -23,8 +23,3 @@ output "sql_admin_username" {
   value       = var.sql_admin_login
 }
 
-output "sql_admin_password" {
-  description = "SQL Server admin password"
-  value       = random_password.sql_password.result
-  sensitive   = true
-}

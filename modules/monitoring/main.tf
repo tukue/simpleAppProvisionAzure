@@ -35,7 +35,6 @@ provider "azurerm" {
   client_secret  = var.azure_client_secret
 }
 
-
 locals {
   common_tags = {
     environment = var.environment
@@ -143,4 +142,34 @@ resource "azurerm_resource_group" "rg" {
   location = var.region
   tags     = local.common_tags
 }
+
+resource "azurerm_key_vault" "key_vault" {
+  name                = "kv-${var.environment}-${random_string.unique.result}"
+  location            = var.region
+  resource_group_name = var.resource_group_name
+  tenant_id           = var.azure_tenant_id
+  sku_name            = "standard"
+  tags                = var.common_tags
+}
+
+resource "azurerm_key_vault_secret" "client_secret" {
+  name         = "azure-client-secret"
+  value        = var.azure_client_secret
+  key_vault_id = azurerm_key_vault.key_vault.id
+}
+
+data "azurerm_key_vault_secret" "client_secret" {
+  name         = "azure-client-secret"
+  key_vault_id = azurerm_key_vault.key_vault.id
+}
+
+resource "azurerm_key_vault_access_policy" "terraform" {
+  key_vault_id = azurerm_key_vault.key_vault.id
+  tenant_id    = var.azure_tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = ["Get", "List", "Set", "Delete"]
+}
+
+
 

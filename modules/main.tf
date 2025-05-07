@@ -78,6 +78,7 @@ module "database" {
   sql_admin_login     = var.sql_admin_login
   subnet_id           = azurerm_subnet.app_subnet.id
   common_tags         = local.common_tags
+  key_vault_id        = module.monitoring.key_vault_id
 }
 
 # Monitoring Module

@@ -47,4 +47,9 @@ variable "azure_ad_admin_object_id" {
   default     = ""
 }
 
+variable "key_vault_id" {
+  description = "ID of the Azure Key Vault"
+  type        = string
+}
+
 

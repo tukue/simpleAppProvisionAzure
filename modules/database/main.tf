@@ -1,4 +1,4 @@
-# Database Module
+
 
 # SQL Server
 resource "azurerm_mssql_server" "sql_server" {
@@ -48,6 +48,25 @@ resource "random_password" "sql_password" {
   length           = 16
   special          = true
   override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "azurerm_key_vault_secret" "sql_admin_password" {
+  name         = "sql-admin-password"
+  value        = random_password.sql_password.result
+  key_vault_id = azurerm_key_vault.key_vault.id
+}
+
+data "azurerm_key_vault_secret" "sql_admin_password" {
+  name         = "sql-admin-password"
+  key_vault_id = azurerm_key_vault.key_vault.id
+}
+
+resource "azurerm_key_vault_access_policy" "terraform" {
+  key_vault_id = var.key_vault_id
+  tenant_id    = var.azure_tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = ["Get", "List", "Set", "Delete"]
 }
 
 
