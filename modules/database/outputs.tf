@@ -11,6 +11,7 @@ output "sql_server_name" {
 output "sql_server_fqdn" {
   description = "FQDN of the SQL Server"
   value       = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+  sensitive   = true
 }
 
 output "database_name" {
@@ -21,5 +22,6 @@ output "database_name" {
 output "sql_admin_username" {
   description = "SQL Server admin username"
   value       = var.sql_admin_login
+  sensitive   = true
 }
 
