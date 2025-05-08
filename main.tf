@@ -99,6 +99,7 @@ module "database" {
   common_tags         = local.common_tags
   key_vault_id        = module.monitoring.key_vault_id
   azure_tenant_id     = var.azure_tenant_id
+  key_vault_name      = "kv-terraform-secrets-dev"  # Replace with your Key Vault name
 }
 
 
@@ -133,6 +134,16 @@ resource "azurerm_log_analytics_workspace" "workspace" {
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags                = local.common_tags
+}
+
+data "azurerm_key_vault" "key_vault" {
+  name                = var.key_vault_name
+  resource_group_name = var.resource_group_name
+}
+
+data "azurerm_key_vault_secret" "sql_admin_password" {
+  name         = "sql-admin-password"
+  key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
 # Outputs

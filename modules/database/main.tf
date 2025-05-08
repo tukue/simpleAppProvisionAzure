@@ -1,5 +1,10 @@
 data "azurerm_client_config" "current" {}
 
+data "azurerm_key_vault" "key_vault" {
+  name                = var.key_vault_name
+  resource_group_name = var.resource_group_name
+}
+
 # SQL Server
 resource "azurerm_mssql_server" "sql_server" {
   name                         = "sql-${var.environment}-${var.unique_suffix}"
