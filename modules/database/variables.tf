@@ -52,4 +52,9 @@ variable "key_vault_id" {
   type        = string
 }
 
+variable "azure_tenant_id" {
+  description = "Azure Tenant ID"
+  type        = string
+}
+
 

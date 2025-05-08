@@ -81,4 +81,5 @@ variable "region" {
 variable "key_vault_id" {
   description = "ID of the Azure Key Vault"
   type        = string
+  default     = null
 }

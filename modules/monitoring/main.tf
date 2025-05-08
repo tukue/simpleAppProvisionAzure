@@ -171,5 +171,7 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   secret_permissions = ["Get", "List", "Set", "Delete"]
 }
 
+data "azurerm_client_config" "current" {}
+
 
 

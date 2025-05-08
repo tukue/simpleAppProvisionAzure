@@ -66,20 +66,7 @@ module "networking" {
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
   common_tags         = local.common_tags
-}
-
-# Database Module
-module "database" {
-  source              = "./modules/database"
-  
-  environment         = var.environment
-  region              = var.region
-  resource_group_name = azurerm_resource_group.rg.name
-  unique_suffix       = random_string.unique.result
-  sql_admin_login     = var.sql_admin_login
-  subnet_id           = module.networking.app_subnet_id
-  common_tags         = local.common_tags
-}
+} 
 
 # Monitoring Module
 module "monitoring" {
@@ -97,6 +84,55 @@ module "monitoring" {
   azure_client_id       = var.azure_client_id
   azure_client_secret   = var.azure_client_secret
   sql_admin_login       = var.sql_admin_login
+}
+
+
+# Database Module
+module "database" {
+  source              = "./modules/database"
+  environment         = var.environment
+  region              = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  unique_suffix       = random_string.unique.result
+  sql_admin_login     = var.sql_admin_login
+  subnet_id           = module.networking.app_subnet_id
+  common_tags         = local.common_tags
+  key_vault_id        = module.monitoring.key_vault_id
+  azure_tenant_id     = var.azure_tenant_id
+}
+
+
+# Bastion Host
+resource "azurerm_public_ip" "bastion_pip" {
+  name                = "bastion-pip-${var.environment}"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = local.common_tags
+}
+
+resource "azurerm_bastion_host" "bastion" {
+  name                = "bastion-${var.environment}"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  tags                = local.common_tags
+
+  ip_configuration {
+    name                 = "configuration"
+    subnet_id            = module.networking.bastion_subnet_id
+    public_ip_address_id = azurerm_public_ip.bastion_pip.id
+  }
+}
+
+# Log Analytics Workspace
+resource "azurerm_log_analytics_workspace" "workspace" {
+  name                = "law-${var.environment}-${random_string.unique.result}"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  tags                = local.common_tags
 }
 
 # Outputs
@@ -120,8 +156,8 @@ output "sql_server_name" {
   value = module.database.sql_server_name
 }
 
-output "database_name" {
-  value = module.database.database_name
+output "workspace_id" {
+  value = module.monitoring.workspace_id
 }
 
 
