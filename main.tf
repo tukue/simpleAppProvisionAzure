@@ -100,6 +100,8 @@ module "database" {
   key_vault_id        = module.monitoring.key_vault_id
   azure_tenant_id     = var.azure_tenant_id
   key_vault_name      = "kv-terraform-secrets-dev"  # Replace with your Key Vault name
+  storage_endpoint    = azurerm_storage_account.backup.primary_blob_endpoint
+  storage_access_key  = azurerm_storage_account.backup.primary_access_key
 }
 
 
@@ -144,6 +146,15 @@ data "azurerm_key_vault" "key_vault" {
 data "azurerm_key_vault_secret" "sql_admin_password" {
   name         = "sql-admin-password"
   key_vault_id = data.azurerm_key_vault.key_vault.id
+}
+
+resource "azurerm_storage_account" "backup" {
+  name                     = "st${random_string.unique.result}"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = var.region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  tags                     = local.common_tags
 }
 
 # Outputs

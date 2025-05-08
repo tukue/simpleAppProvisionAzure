@@ -87,4 +87,19 @@ variable "key_vault_id" {
 variable "key_vault_name" {
   description = "Name of the Azure Key Vault"
   type        = string
+} 
+
+variable "start_ip_address" {
+  description = "Start IP address for SQL Server firewall rule"
+  type        = string
+}
+
+variable "end_ip_address" {
+  description = "End IP address for SQL Server firewall rule"
+  type        = string
+} 
+
+variable "unique_suffix" {
+  description = "Unique suffix for resource names"
+  type        = string
 }

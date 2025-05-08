@@ -62,4 +62,12 @@ variable "azure_tenant_id" {
   type        = string
 }
 
+variable "storage_endpoint" {
+  description = "Storage account endpoint for auditing"
+  type        = string
+}
 
+variable "storage_access_key" {
+  description = "Storage account access key for auditing"
+  type        = string
+}

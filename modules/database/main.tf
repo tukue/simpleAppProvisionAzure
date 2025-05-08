@@ -74,6 +74,29 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   secret_permissions = ["Get", "List", "Set", "Delete"]
 }
 
+resource "azurerm_mssql_firewall_rule" "allow_specific_ips" {
+  name             = "AllowSpecificIPs"
+  server_id        = azurerm_mssql_server.sql_server.id
+  start_ip_address = "20.42.136.100" # Replace with your specific IP range
+  end_ip_address   = "20.42.136.200" # Replace with your specific IP range
+}
+
+resource "azurerm_storage_account" "backup" {
+  name                     = "st${var.unique_suffix}"
+  resource_group_name      = var.resource_group_name
+  location                 = var.region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  tags                     = var.common_tags
+}
+
+resource "azurerm_mssql_server_extended_auditing_policy" "auditing_policy" {
+  server_id                  = azurerm_mssql_server.sql_server.id
+  storage_endpoint           = var.storage_endpoint
+  storage_account_access_key = var.storage_access_key
+  retention_in_days          = 90 # Adjust as needed
+}
+
 
 
 
