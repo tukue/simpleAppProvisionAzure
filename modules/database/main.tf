@@ -75,10 +75,10 @@ resource "azurerm_key_vault_access_policy" "terraform" {
 }
 
 resource "azurerm_mssql_firewall_rule" "allow_specific_ips" {
-  name             = "AllowSpecificIPs"
+  name             = "AllowSpecificIP"
   server_id        = azurerm_mssql_server.sql_server.id
-  start_ip_address = "20.42.136.100" # Replace with your specific IP range
-  end_ip_address   = "20.42.136.200" # Replace with your specific IP range
+  start_ip_address = var.allowed_ip_address
+  end_ip_address   = var.allowed_ip_address
 }
 
 resource "azurerm_storage_account" "backup" {

@@ -102,6 +102,7 @@ module "database" {
   azure_tenant_id     = var.azure_tenant_id
   storage_endpoint    = azurerm_storage_account.backup.primary_blob_endpoint
   storage_access_key  = azurerm_storage_account.backup.primary_access_key
+  allowed_ip_address  = var.allowed_ip_address
 }
 
 resource "azurerm_mssql_server" "sql_server" {
@@ -115,6 +116,13 @@ resource "azurerm_mssql_server" "sql_server" {
   administrator_login_password = module.database.sql_admin_password
   minimum_tls_version          = "1.2"
   tags                         = var.common_tags
+}
+
+resource "azurerm_mssql_firewall_rule" "allow_specific_ips" {
+  name             = "AllowSpecificIP"
+  server_id        = azurerm_mssql_server.sql_server.id
+  start_ip_address = var.start_ip_address
+  end_ip_address   = var.end_ip_address
 }
 
 # Bastion Host

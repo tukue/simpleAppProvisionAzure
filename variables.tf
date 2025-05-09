@@ -102,4 +102,9 @@ variable "end_ip_address" {
 variable "unique_suffix" {
   description = "Unique suffix for resource names"
   type        = string
+} 
+
+variable "allowed_ip_address" {
+  description = "The specific IP address allowed to access the SQL server"
+  type        = string
 }

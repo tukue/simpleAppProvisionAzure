@@ -71,3 +71,8 @@ variable "storage_access_key" {
   description = "Storage account access key for auditing"
   type        = string
 }
+
+variable "allowed_ip_address" {
+  description = "The specific IP address allowed to access the SQL server"
+  type        = string
+}
