@@ -58,7 +58,7 @@ resource "random_password" "sql_password" {
 resource "azurerm_key_vault_secret" "sql_admin_password" {
   name         = "sql-admin-password"
   value        = random_password.sql_password.result
-  key_vault_id = var.key_vault_id
+  key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
 data "azurerm_key_vault_secret" "sql_admin_password" {

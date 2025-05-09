@@ -98,12 +98,24 @@ module "database" {
   subnet_id           = module.networking.app_subnet_id
   common_tags         = local.common_tags
   key_vault_id        = module.monitoring.key_vault_id
+  key_vault_name      = module.monitoring.key_vault_name
   azure_tenant_id     = var.azure_tenant_id
-  key_vault_name      = "kv-terraform-secrets-dev"  # Replace with your Key Vault name
   storage_endpoint    = azurerm_storage_account.backup.primary_blob_endpoint
   storage_access_key  = azurerm_storage_account.backup.primary_access_key
 }
 
+resource "azurerm_mssql_server" "sql_server" {
+  depends_on = [module.database] # Implicit dependency on the database module
+
+  name                         = "sql-${var.environment}-${var.unique_suffix}"
+  resource_group_name          = var.resource_group_name
+  location                     = var.region
+  version                      = "12.0"
+  administrator_login          = var.sql_admin_login
+  administrator_login_password = module.database.sql_admin_password
+  minimum_tls_version          = "1.2"
+  tags                         = var.common_tags
+}
 
 # Bastion Host
 resource "azurerm_public_ip" "bastion_pip" {
@@ -143,10 +155,6 @@ data "azurerm_key_vault" "key_vault" {
   resource_group_name = var.resource_group_name
 }
 
-data "azurerm_key_vault_secret" "sql_admin_password" {
-  name         = "sql-admin-password"
-  key_vault_id = data.azurerm_key_vault.key_vault.id
-}
 
 resource "azurerm_storage_account" "backup" {
   name                     = "st${random_string.unique.result}"

@@ -25,3 +25,14 @@ output "sql_admin_username" {
   sensitive   = true
 }
 
+output "sql_admin_password_secret_id" {
+  description = "ID of the SQL admin password secret"
+  value       = azurerm_key_vault_secret.sql_admin_password.id
+  sensitive   = true
+}
+
+output "sql_admin_password" {
+  description = "SQL Server admin password"
+  value       = random_password.sql_password.result
+  sensitive   = true
+}

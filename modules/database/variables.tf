@@ -19,7 +19,7 @@ variable "common_tags" {
 }
 
 variable "unique_suffix" {
-  description = "Unique suffix to add to resource names"
+  description = "Unique suffix for resource names"
   type        = string
 }
 
