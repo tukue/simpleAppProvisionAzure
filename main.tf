@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.70"
+      version = "~> 3.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -11,7 +11,6 @@ terraform {
   }
 }
 
-# Configure Azure Provider
 provider "azurerm" {
   features {
     resource_group {
@@ -30,9 +29,9 @@ provider "azurerm" {
     }
   }
   subscription_id = var.azure_subscription_id
-  tenant_id      = var.azure_tenant_id
-  client_id      = var.azure_client_id
-  client_secret  = var.azure_client_secret
+  tenant_id       = var.azure_tenant_id
+  client_id       = var.azure_client_id
+  client_secret   = var.azure_client_secret
 }
 
 provider "random" {}
@@ -41,7 +40,7 @@ locals {
   common_tags = {
     environment = var.environment
     project     = "simpleAppProvisionAzure"
-    owner       = "DevOps Team" 
+    owner       = "DevOps Team"
   }
 }
 
@@ -52,310 +51,152 @@ resource "random_string" "unique" {
   upper   = false
 }
 
-# Generate random password for SQL admin
-resource "random_password" "sql_admin_password" {
-  length           = 16
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-  min_lower        = 1
-  min_upper        = 1
-  min_numeric      = 1
-  min_special      = 1
+# Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = var.resource_group_name != "" ? var.resource_group_name : "rg-${var.environment}"
+  location = var.region
+  tags     = local.common_tags
+}
+
+# Networking Module
+module "networking" {
+  source = "./modules/networking"
+
+  environment         = var.environment
+  region              = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  common_tags         = local.common_tags
+} 
+
+# Monitoring Module
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  environment         = var.environment
+  region              = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  common_tags         = var.common_tags
+  unique_suffix       = random_string.unique.result
+  sql_server_id       = module.database.sql_server_id
+
+  azure_subscription_id = var.azure_subscription_id
+  azure_tenant_id       = var.azure_tenant_id
+  azure_client_id       = var.azure_client_id
+  azure_client_secret   = var.azure_client_secret
+  sql_admin_login       = var.sql_admin_login
+}
+
+
+# Database Module
+module "database" {
+  source              = "./modules/database"
+  environment         = var.environment
+  region              = var.region
+  resource_group_name = azurerm_resource_group.rg.name
+  unique_suffix       = random_string.unique.result
+  sql_admin_login     = var.sql_admin_login
+  subnet_id           = module.networking.app_subnet_id
+  common_tags         = local.common_tags
+  key_vault_id        = module.monitoring.key_vault_id
+  key_vault_name      = module.monitoring.key_vault_name
+  azure_tenant_id     = var.azure_tenant_id
+  storage_endpoint    = azurerm_storage_account.backup.primary_blob_endpoint
+  storage_access_key  = azurerm_storage_account.backup.primary_access_key
+  allowed_ip_address  = var.allowed_ip_address
 }
 
 resource "azurerm_mssql_server" "sql_server" {
-  name                         = "sql-server-${var.environment}-${random_string.unique.result}"
+  depends_on = [module.database] # Implicit dependency on the database module
+
+  name                         = "sql-${var.environment}-${var.unique_suffix}"
+  resource_group_name          = var.resource_group_name
   location                     = var.region
-  resource_group_name          = azurerm_resource_group.rg.name
   version                      = "12.0"
   administrator_login          = var.sql_admin_login
-  administrator_login_password = random_password.sql_admin_password.result
-  tags                         = local.common_tags
+  administrator_login_password = module.database.sql_admin_password
+  minimum_tls_version          = "1.2"
+  tags                         = var.common_tags
 }
 
-resource "azurerm_mssql_database" "sql_database" {
-  name                = "sql-db-${var.environment}"
-  server_id           = azurerm_mssql_server.sql_server.id
-  collation           = "SQL_Latin1_General_CP1_CI_AS"
-  max_size_gb         = 10
-  sku_name            = "S1"
-  tags                = local.common_tags
-
-  long_term_retention_policy {
-    weekly_retention  = "P1W"
-    monthly_retention = "P1M"
-    yearly_retention  = "P1Y"
-  }
-}
-
-# Allow Azure services to access the SQL Server
-resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
-  name             = "AllowAzureServices"
+resource "azurerm_mssql_firewall_rule" "allow_specific_ips" {
+  name             = "AllowSpecificIP"
   server_id        = azurerm_mssql_server.sql_server.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
+  start_ip_address = var.start_ip_address
+  end_ip_address   = var.end_ip_address
 }
 
-# Create Virtual Network Rule for SQL Server
-resource "azurerm_mssql_virtual_network_rule" "sql_vnet_rule" {
-  name                = "sql-vnet-rule"
-  server_id           = azurerm_mssql_server.sql_server.id
-  subnet_id           = azurerm_subnet.app_subnet.id
-}
-
-# Allow VM subnet in SQL Server firewall
-resource "azurerm_mssql_firewall_rule" "allow_subnet" {
-  name             = "AllowSubnet"
-  server_id        = azurerm_mssql_server.sql_server.id
-  start_ip_address = cidrhost(azurerm_subnet.app_subnet.address_prefixes[0], 0)
-  end_ip_address   = cidrhost(azurerm_subnet.app_subnet.address_prefixes[0], -1)
-}
-
-# Create Log Analytics Workspace
-resource "azurerm_log_analytics_workspace" "workspace" {
-  name                = "law-${var.environment}-${random_string.unique.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  sku                = "PerGB2018"
-  retention_in_days   = 30
-  tags               = local.common_tags
-}
-
-# Remove the allow_vm firewall rule since we're using VMSS
-# and update other resources accordingly
-# DELETE OR COMMENT OUT:
-# resource "azurerm_mssql_firewall_rule" "allow_vm" {
-#   name             = "AllowVM"
-#   server_id        = azurerm_mssql_server.sql_server.id
-#   start_ip_address = azurerm_public_ip.pip.ip_address
-#   end_ip_address   = azurerm_public_ip.pip.ip_address
-# }
-
+# Bastion Host
 resource "azurerm_public_ip" "bastion_pip" {
   name                = "bastion-pip-${var.environment}"
   location            = var.region
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-}
-
-resource "azurerm_subnet" "app_subnet" {
-  name                 = "app-subnet-${var.environment}"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
-
-  service_endpoints = ["Microsoft.Sql"]
-}
-
-resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-${var.environment}"
-  location            = var.region
-  resource_group_name = azurerm_resource_group.rg.name
-  address_space       = ["10.0.0.0/16"]
   tags                = local.common_tags
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = "rg-${var.environment}"
-  location = var.region
-  tags     = local.common_tags
-}
-
-resource "azurerm_network_interface" "vm_nic" {
-  name                = "vm-nic-${var.environment}"
+resource "azurerm_bastion_host" "bastion" {
+  name                = "bastion-${var.environment}"
   location            = var.region
   resource_group_name = azurerm_resource_group.rg.name
+  tags                = local.common_tags
 
   ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.app_subnet.id
-    private_ip_address_allocation = "Dynamic"
+    name                 = "configuration"
+    subnet_id            = module.networking.bastion_subnet_id
+    public_ip_address_id = azurerm_public_ip.bastion_pip.id
   }
 }
 
-resource "azurerm_linux_virtual_machine" "app_vm" {
-  name                = "app-vm-${var.environment}"
+# Log Analytics Workspace
+resource "azurerm_log_analytics_workspace" "workspace" {
+  name                = "law-${var.environment}-${random_string.unique.result}"
   location            = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  network_interface_ids = [
-    azurerm_network_interface.vm_nic.id
-  ]
-  size               = "Standard_B2s"
-  admin_username     = "azureuser"
-  admin_password     = random_password.vm_admin_password.result
-  disable_password_authentication = false
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-
-  tags = local.common_tags
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  tags                = local.common_tags
 }
 
-resource "random_password" "vm_admin_password" {
-  length           = 16
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-  min_lower        = 1
-  min_upper        = 1
-  min_numeric      = 1
-  min_special      = 1
+data "azurerm_key_vault" "key_vault" {
+  name                = var.key_vault_name
+  resource_group_name = var.resource_group_name
 }
 
-resource "azurerm_mssql_firewall_rule" "allow_vm_subnet" {
-  name             = "AllowVMSubnet"
-  server_id        = azurerm_mssql_server.sql_server.id
-  start_ip_address = cidrhost(azurerm_subnet.app_subnet.address_prefixes[0], 0)
-  end_ip_address   = cidrhost(azurerm_subnet.app_subnet.address_prefixes[0], -1)
-}
 
-resource "azurerm_network_security_group" "vm_nsg" {
-  name                = "vm-nsg-${var.environment}"
-  location            = var.region
-  resource_group_name = azurerm_resource_group.rg.name
-
-  security_rule {
-    name                       = "AllowAppPort"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "5000"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "AllowSSHFromPublicIP"
-    priority                   = 1000
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22" # SSH port
-    source_address_prefix      = var.public_ip_address
-    destination_address_prefix = "*"
-  }
-}
-
-resource "azurerm_network_interface_security_group_association" "vm_nic_nsg" {
-  network_interface_id      = azurerm_network_interface.vm_nic.id
-  network_security_group_id = azurerm_network_security_group.vm_nsg.id
-}
-
-resource "azurerm_monitor_diagnostic_setting" "sql_diagnostics" {
-  name                       = "sql-diagnostics"
-  target_resource_id         = azurerm_mssql_server.sql_server.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspace.id
-
-  metric {
-    category = "AllMetrics"
-  }
-}
-
-resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
-  name                = "app-vmss-${var.environment}"
-  location            = var.region
-  resource_group_name = azurerm_resource_group.rg.name
-  sku                 = "Standard_B1s"
-  instances           = 1
-
-  admin_username = "azureuser"
-  admin_password = random_password.vm_admin_password.result
-  disable_password_authentication = false
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
-  }
-
-  network_interface {
-    name    = "vmss-nic-${var.environment}"
-    primary = true
-
-    ip_configuration {
-      name      = "internal"
-      subnet_id = azurerm_subnet.app_subnet.id
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      network_interface[0].ip_configuration[0].primary
-    ]
-  }
-
-  tags = local.common_tags
-}
-
-resource "azurerm_storage_account" "example" {
-  name                     = "storage${random_string.unique.result}"
+resource "azurerm_storage_account" "backup" {
+  name                     = "st${random_string.unique.result}"
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = var.region
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  https_traffic_only_enabled = true
-  tags                     = var.common_tags
+  tags                     = local.common_tags
 }
 
-resource "azurerm_monitor_metric_alert" "cpu_alert" {
-  name                = "cpu-alert-${var.environment}"
-  resource_group_name = azurerm_resource_group.rg.name
-  scopes              = [azurerm_linux_virtual_machine_scale_set.vmss.id]
-  description         = "Alert for high CPU usage"
-  severity            = 2
-  frequency           = "PT1M"
-  window_size         = "PT5M"
-
-  criteria {
-    metric_namespace = "Microsoft.Compute/virtualMachineScaleSets"
-    metric_name      = "Percentage CPU"
-    aggregation      = "Average"
-    operator         = "GreaterThan"
-    threshold        = 80
-  }
-
-  action {
-    action_group_id = azurerm_monitor_action_group.alert_action_group.id
-  }
+# Outputs
+output "resource_group_name" {
+  value = azurerm_resource_group.rg.name
 }
 
-resource "azurerm_monitor_action_group" "alert_action_group" {
-  name                = "alert-action-group-${var.environment}"
-  resource_group_name = azurerm_resource_group.rg.name
-  short_name          = "alertgrp"
-
-  email_receiver {
-    name          = "email-alert"
-    email_address = "your-email@example.com"
-    use_common_alert_schema = true
-  }
-
-  tags = local.common_tags
+output "vnet_id" {
+  value = module.networking.vnet_id
 }
 
+output "app_subnet_id" {
+  value = module.networking.app_subnet_id
+}
 
+output "sql_server_id" {
+  value = module.database.sql_server_id
+}
 
+output "sql_server_name" {
+  value = module.database.sql_server_name
+}
 
-
-
+output "workspace_id" {
+  value = module.monitoring.workspace_id
+}
 
 
 
