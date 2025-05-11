@@ -36,7 +36,7 @@ resource "azurerm_subnet" "bastion_subnet" {
 }
 
 resource "azurerm_network_interface" "nic" {
-  name                = "nic-${var.environment}"
+  name                = "app_vm_nic-${var.environment}"
   location            = var.region
   resource_group_name = var.resource_group_name
 
@@ -60,7 +60,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file(var.ssh_public_key_path)
+    public_key = try(file(var.ssh_public_key_path), null) # Using try() for error handling
   }
 
   network_interface_ids = [azurerm_network_interface.nic.id]
