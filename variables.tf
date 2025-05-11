@@ -107,4 +107,5 @@ variable "unique_suffix" {
 variable "allowed_ip_address" {
   description = "The specific IP address allowed to access the SQL server"
   type        = string
-}
+} 
+
