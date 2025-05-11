@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 3.70"
     }
     random = {
       source  = "hashicorp/random"
@@ -66,6 +66,7 @@ module "networking" {
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
   common_tags         = local.common_tags
+  ssh_public_key_path = var.ssh_public_key_path
 } 
 
 # Monitoring Module
