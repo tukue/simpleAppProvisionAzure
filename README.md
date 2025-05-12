@@ -112,17 +112,8 @@ az keyvault secret set \
     --value "YOUR_CLIENT_SECRET"
 ```
 
-### 3. Configure Environment
+### 3. Configure workspace per environment using terraform.dev.tfvars, terraform_staging.tfvars and terraform.prod.tfvars 
 
-Create a `.env` file based on `env.example`:
-```bash
-AZURE_SUBSCRIPTION_ID=your-subscription-id
-AZURE_TENANT_ID=your-tenant-id
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-ENVIRONMENT=dev
-REGION=swedencentral
-RESOURCE_GROUP_NAME=your-resource-group
 ```
 
 ## Deployment
