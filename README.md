@@ -112,47 +112,61 @@ az keyvault secret set \
     --value "YOUR_CLIENT_SECRET"
 ```
 
-### 3. Configure workspace per environment using terraform.dev.tfvars, terraform_staging.tfvars and terraform.prod.tfvars 
+### 3. Configure workspace per environment using terraform.dev.tfvars, terraform_staging.tfvars and terraform.prod.tfvars  
 
+### Creating Terraform Workspaces for Dev, Staging, and Production
+
+Terraform workspaces allow you to manage multiple environments (e.g., dev, staging, production) using the same configuration. Follow these steps to create and use workspaces:
+
+#### 1. Initialize Terraform
+Before creating workspaces, initialize Terraform in your project directory:
+```bash
+terraform init
 ```
 
-## Deployment
+#### 2. Create and Switch Workspaces
+Create and switch to the desired workspace (e.g., dev, staging, production):
+```bash
+# Create a workspace for development
+terraform workspace new dev
 
-1. **Clone and Initialize**
-   ```bash
-   git clone <repository-url>
-   cd <project-directory>
-   terraform init
-   ```
+# Create a workspace for staging
+terraform workspace new staging
 
-2. **Configure Variables**
-   Create a `terraform.tfvars` file:
-   ```hcl
-   environment        = "dev"
-   location          = "swedencentral"
-   ```
+# Create a workspace for production
+terraform workspace new production
 
-3. **Deploy Infrastructure**
-   ```bash
-   ./terraform.sh plan
-   ./terraform.sh apply
-   ```
+# Switch to a specific workspace
+terraform workspace select dev
+```
 
-## Infrastructure Components
+#### 3. Plan for a Specific Workspace
+Run the `terraform plan` command to preview changes for the active workspace:
+```bash
+terraform plan -var-file="terraform.dev.tfvars"
 
-### Compute
-- Linux VM Scale Set
-  - Ubuntu 18.04 LTS
-  - Standard_DS2_v2 size
-  - Auto-scaling enabled
-  - Zone redundant deployment
-  - Rolling updates configuration
+.\terraform.ps1 init -var-file="terraform.dev.tfvars"  # to setup credentails for azure account 
 
-### Networking
-- Virtual Network with segregated subnets:
-  - Application subnet
-  - Database subnet
-  - Management subnet
+.\terraform.ps1 plan -var-file="terraform.dev.tfvars"  
+
+```
+Replace `terraform.dev.tfvars` with the appropriate variable file for staging or production (e.g., `terraform.staging.tfvars` or `terraform.prod.tfvars`).
+
+#### 4. Apply Changes
+Apply the changes to the active workspace:
+```bash
+terraform apply -var-file="terraform.dev.tfvars"
+```
+
+#### 5. Verify Active Workspace
+To confirm the current workspace, use:
+```bash
+terraform workspace show
+```
+
+Repeat these steps for each environment as needed.
+
+
 - Azure Bastion Host
 - Network Security Groups with:
   - SSH access via Bastion
@@ -207,18 +221,6 @@ sqlcmd -S $(terraform output -raw sql_server_fqdn) \
 ## Maintenance
 
 ### Secret Rotation
-```bash
-# Rotate Service Principal secret
-az ad sp credential reset \
-    --name "terraform-sp" \
-    --append \
-    --credential-description "terraform-secret-$(date +%Y%m%d)" \
-    --query password -o tsv | \
-az keyvault secret set \
-    --vault-name "kv-terraform-secrets" \
-    --name "AZURE-CLIENT-SECRET" \
-    --value @-
-```
 
 ### Infrastructure Updates
 1. Update Terraform configurations

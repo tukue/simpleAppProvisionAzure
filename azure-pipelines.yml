@@ -4,6 +4,15 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+parameters:
+- name: environment
+  type: string
+  default: 'dev'
+  values:
+  - 'dev'
+  - 'staging' 
+  - 'prod'
+
 variables:
   # Azure Service Principal credentials
   AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
@@ -12,9 +21,9 @@ variables:
   AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
 
   # Terraform variables
-  ENVIRONMENT: $(ENVIRONMENT)
+  ENVIRONMENT: ${{ parameters.environment }}
   REGION: $(REGION)
-  RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+  RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)-${{ parameters.environment }}
 
 steps:
 - task: UsePythonVersion@0
@@ -24,7 +33,7 @@ steps:
 
 - task: AzureCLI@2
   inputs:
-    azureSubscription: 'AzureServiceConnection' # Replace with the service connection name
+    azureSubscription: 'AzureServiceConnection-${{ parameters.environment }}' # Replace with the service connection name
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
@@ -40,8 +49,9 @@ steps:
   displayName: 'Install Terraform'
 
 - script: |
-    terraform init
-    terraform plan -out=tfplan
+    terraform init -backend-config=environments/${{ parameters.environment }}/backend.tfvars
+    terraform workspace select ${{ parameters.environment }} || terraform workspace new ${{ parameters.environment }}
+    terraform plan -var-file=environments/${{ parameters.environment }}/terraform.tfvars -out=tfplan
   displayName: 'Terraform Init and Plan'
 
 - script: |
