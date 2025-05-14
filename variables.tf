@@ -72,6 +72,12 @@ variable "common_tags" {
   type        = map(string)
 }
 
+variable "additional_tags" {
+  description = "Additional environment-specific tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 variable "region" {
   description = "Azure region to deploy resources"
   type        = string
@@ -108,4 +114,3 @@ variable "allowed_ip_address" {
   description = "The specific IP address allowed to access the SQL server"
   type        = string
 } 
-

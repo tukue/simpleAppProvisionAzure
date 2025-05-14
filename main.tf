@@ -37,11 +37,8 @@ provider "azurerm" {
 provider "random" {}
 
 locals {
-  common_tags = {
-    environment = var.environment
-    project     = "simpleAppProvisionAzure"
-    owner       = "DevOps Team"
-  }
+  # Merge common tags with additional environment-specific tags
+  resource_tags = merge(var.common_tags, var.additional_tags)
 }
 
 # Generate random string for unique names
@@ -55,7 +52,7 @@ resource "random_string" "unique" {
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name != "" ? var.resource_group_name : "rg-${var.environment}"
   location = var.region
-  tags     = local.common_tags
+  tags     = local.resource_tags
 }
 
 # Networking Module
@@ -65,7 +62,7 @@ module "networking" {
   environment         = var.environment
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags         = local.common_tags
+  common_tags         = local.resource_tags
   ssh_public_key_path = var.ssh_public_key_path
 } 
 
@@ -76,7 +73,7 @@ module "monitoring" {
   environment         = var.environment
   region              = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  common_tags         = var.common_tags
+  common_tags         = local.resource_tags
   unique_suffix       = random_string.unique.result
   sql_server_id       = module.database.sql_server_id
 
@@ -97,7 +94,7 @@ module "database" {
   unique_suffix       = random_string.unique.result
   sql_admin_login     = var.sql_admin_login
   subnet_id           = module.networking.app_subnet_id
-  common_tags         = local.common_tags
+  common_tags         = local.resource_tags
   key_vault_id        = module.monitoring.key_vault_id
   key_vault_name      = module.monitoring.key_vault_name
   azure_tenant_id     = var.azure_tenant_id
@@ -116,7 +113,7 @@ resource "azurerm_mssql_server" "sql_server" {
   administrator_login          = var.sql_admin_login
   administrator_login_password = module.database.sql_admin_password
   minimum_tls_version          = "1.2"
-  tags                         = var.common_tags
+  tags                         = local.resource_tags
 }
 
 resource "azurerm_mssql_firewall_rule" "allow_specific_ips" {
@@ -133,14 +130,14 @@ resource "azurerm_public_ip" "bastion_pip" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  tags                = local.common_tags
+  tags                = local.resource_tags
 }
 
 resource "azurerm_bastion_host" "bastion" {
   name                = "bastion-${var.environment}"
   location            = var.region
   resource_group_name = azurerm_resource_group.rg.name
-  tags                = local.common_tags
+  tags                = local.resource_tags
 
   ip_configuration {
     name                 = "configuration"
@@ -156,7 +153,7 @@ resource "azurerm_log_analytics_workspace" "workspace" {
   resource_group_name = azurerm_resource_group.rg.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  tags                = local.common_tags
+  tags                = local.resource_tags
 }
 
 data "azurerm_key_vault" "key_vault" {
@@ -171,7 +168,7 @@ resource "azurerm_storage_account" "backup" {
   location                 = var.region
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  tags                     = local.common_tags
+  tags                     = local.resource_tags
 }
 
 # Outputs
@@ -198,8 +195,3 @@ output "sql_server_name" {
 output "workspace_id" {
   value = module.monitoring.workspace_id
 }
-
-
-
-
-
