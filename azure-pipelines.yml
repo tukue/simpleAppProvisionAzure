@@ -4,6 +4,15 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
+parameters:
+- name: environment
+  type: string
+  default: 'dev'
+  values:
+  - 'dev'
+  - 'staging' 
+  - 'prod'
+
 variables:
   # Azure Service Principal credentials
   AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
@@ -12,9 +21,24 @@ variables:
   AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
 
   # Terraform variables
-  ENVIRONMENT: $(ENVIRONMENT)
+  ENVIRONMENT: ${{ parameters.environment }}
   REGION: $(REGION)
-  RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+  RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)-${{ parameters.environment }}
+  
+  # Environment-specific tag mappings
+  ${{ if eq(parameters.environment, 'dev') }}:
+    CRITICALITY: 'low'
+    COST_CENTER: 'dev-cc-123'
+    TIER: 'development'
+  ${{ if eq(parameters.environment, 'staging') }}:
+    CRITICALITY: 'medium'
+    COST_CENTER: 'staging-cc-456'
+    TIER: 'pre-production'
+  ${{ if eq(parameters.environment, 'prod') }}:
+    CRITICALITY: 'high'
+    COST_CENTER: 'prod-cc-789'
+    TIER: 'production'
+    BACKUP: 'daily'
 
 steps:
 - task: UsePythonVersion@0
@@ -24,7 +48,7 @@ steps:
 
 - task: AzureCLI@2
   inputs:
-    azureSubscription: 'AzureServiceConnection' # Replace with the service connection name
+    azureSubscription: 'AzureServiceConnection-${{ parameters.environment }}' # Replace with the service connection name
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
@@ -40,8 +64,21 @@ steps:
   displayName: 'Install Terraform'
 
 - script: |
-    terraform init
-    terraform plan -out=tfplan
+    terraform init -backend-config=environments/${{ parameters.environment }}/backend.tfvars
+    terraform workspace select ${{ parameters.environment }} || terraform workspace new ${{ parameters.environment }}
+    
+    # Create a custom tfvars file with additional tags based on environment
+    echo "additional_tags = {" > additional_tags.tfvars
+    echo "  criticality = \"$(CRITICALITY)\"" >> additional_tags.tfvars
+    echo "  cost_center = \"$(COST_CENTER)\"" >> additional_tags.tfvars
+    echo "  tier = \"$(TIER)\"" >> additional_tags.tfvars
+    if [ "${{ parameters.environment }}" = "prod" ]; then
+      echo "  backup = \"$(BACKUP)\"" >> additional_tags.tfvars
+    fi
+    echo "}" >> additional_tags.tfvars
+    
+    # Plan with both environment tfvars and additional tags
+    terraform plan -var-file=environments/${{ parameters.environment }}/terraform.tfvars -var-file=additional_tags.tfvars -out=tfplan
   displayName: 'Terraform Init and Plan'
 
 - script: |
