@@ -141,6 +141,31 @@ resource "azurerm_key_vault" "key_vault" {
   tags                = var.common_tags
 }
 
+# Enable diagnostic settings for Key Vault
+resource "azurerm_monitor_diagnostic_setting" "key_vault_diagnostics" {
+  name                       = "key-vault-diagnostics"
+  target_resource_id         = azurerm_key_vault.key_vault.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.workspace.id
+
+  log {
+    category = "AuditEvent"
+    enabled  = true
+    retention_policy {
+      enabled = true
+      days    = 30
+    }
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+    retention_policy {
+      enabled = true
+      days    = 30
+    }
+  }
+}
+
 resource "azurerm_key_vault_secret" "client_secret" {
   name         = "azure-client-secret"
   value        = var.azure_client_secret

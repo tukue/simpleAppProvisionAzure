@@ -37,4 +37,3 @@ output "sql_admin_password" {
   sensitive   = true
 }
  
- 

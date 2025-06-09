@@ -35,5 +35,13 @@
 //   sensitive = true
 // }
 
+output "sql_server_id" {
+  value = module.database.sql_server_id
+}
+
+output "sql_server_name" {
+  value = module.database.sql_server_name
+}
+
 
 
