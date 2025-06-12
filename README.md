@@ -328,4 +328,25 @@ sqlcmd -S $(terraform output -raw sql_server_fqdn) \
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+### GitHub Actions Terraform Security Scanning
+
+This project uses GitHub Actions with Terrascan to automatically scan Terraform configurations for security issues and best practices.
+
+#### Security Scan Workflow
+
+The workflow [`.github/workflows/terraform-scan.yml`](.github/workflows/terraform-scan.yml) runs automatically on:
+- Push events affecting `.tf` files
+- Pull requests affecting `.tf` files
+- Manual triggers (workflow_dispatch)
+
+#### Key Features
+- Automated security scanning of Terraform configurations
+- High and medium severity issue detection
+- Detailed violation reporting
+- Azure-specific security rules
+- Artifact generation for scan results
+
+
+```
+
 
