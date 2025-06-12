@@ -2,13 +2,14 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.70"
+      version = "~> 3.70"  
     }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "azurerm" {
@@ -169,29 +170,4 @@ resource "azurerm_storage_account" "backup" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   tags                     = local.resource_tags
-}
-
-# Outputs
-output "resource_group_name" {
-  value = azurerm_resource_group.rg.name
-}
-
-output "vnet_id" {
-  value = module.networking.vnet_id
-}
-
-output "app_subnet_id" {
-  value = module.networking.app_subnet_id
-}
-
-output "sql_server_id" {
-  value = module.database.sql_server_id
-}
-
-output "sql_server_name" {
-  value = module.database.sql_server_name
-}
-
-output "workspace_id" {
-  value = module.monitoring.workspace_id
 }
