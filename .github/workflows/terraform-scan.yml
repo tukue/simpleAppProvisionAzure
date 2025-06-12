@@ -1,4 +1,4 @@
-name: Azure Terraform Security Scan
+name: Azure Infrastructure Security Scan
 
 on:
   push:
@@ -9,20 +9,15 @@ on:
     paths:
       - '**.tf'
       - '.github/workflows/terraform-scan.yml'
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   security-scan:
-    name: Azure Terraform Security Scan
+    name: Terrascan Security Analysis
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.6.0"
 
       - name: Install Terrascan
         run: |
@@ -34,20 +29,10 @@ jobs:
           sudo install terrascan /usr/local/bin
           rm terrascan
 
-      - name: Initialize Terraform
-        run: terraform init -backend=false
-
-      - name: Run Terrascan for Azure
-        id: terrascan
+      - name: Run Terrascan
         run: |
-          # Create scan config file for Azure
+          # Create scan config file
           cat > config.toml << EOF
-          [rules]
-          skip-rules = [
-            "AC_AZURE_0356", # Skip rule for public network access as we're using firewall rules
-            "AC_AZURE_0185"  # Skip rule for default virtual network as we're defining custom ones
-          ]
-          
           [severity]
           level = "HIGH"
           
@@ -55,7 +40,7 @@ jobs:
           webhook = false
           EOF
           
-          # Run scan with Azure-specific configuration
+          # Run scan for Azure infrastructure
           terrascan scan \
             --config config.toml \
             -t azure \
@@ -74,44 +59,47 @@ jobs:
             -o human | tee terrascan-human.txt
         continue-on-error: true
 
-      - name: Run Azure Policy Compliance Check
-        run: |
-          terraform show -json | jq . > plan.json
-          # Add Azure policy compliance check here if needed
-
       - name: Parse Results
         id: parse
         run: |
+          # Count violations by severity
           HIGH_COUNT=$(jq -r '.results.violations | map(select(.severity == "HIGH")) | length' terrascan-results.json || echo "0")
           MEDIUM_COUNT=$(jq -r '.results.violations | map(select(.severity == "MEDIUM")) | length' terrascan-results.json || echo "0")
+          
+          # Set environment variables
           echo "high_severity_count=${HIGH_COUNT}" >> $GITHUB_ENV
           echo "medium_severity_count=${MEDIUM_COUNT}" >> $GITHUB_ENV
           
-          echo "Summary of Azure Security Findings:"
-          echo "High severity issues: ${HIGH_COUNT}"
-          echo "Medium severity issues: ${MEDIUM_COUNT}"
+          # Generate detailed report
+          echo "Security Scan Summary:" > scan-report.txt
+          echo "===================" >> scan-report.txt
+          echo "High severity issues: ${HIGH_COUNT}" >> scan-report.txt
+          echo "Medium severity issues: ${MEDIUM_COUNT}" >> scan-report.txt
+          echo "" >> scan-report.txt
           
-          # Extract specific Azure-related violations
-          jq -r '.results.violations[] | select(.severity == "HIGH") | "Rule: \(.rule_id)\nDescription: \(.description)\n"' terrascan-results.json > azure-high-severity.txt
+          # Extract detailed violations
+          echo "High Severity Violations:" >> scan-report.txt
+          jq -r '.results.violations[] | select(.severity == "HIGH") | "Rule: \(.rule_id)\nResource: \(.resource_name)\nDescription: \(.description)\n"' terrascan-results.json >> scan-report.txt
+          
+          cat scan-report.txt
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: azure-terraform-scan-results
+          name: azure-security-scan
           path: |
             terrascan-results.json
             terrascan-human.txt
-            azure-high-severity.txt
-            plan.json
+            scan-report.txt
 
-      - name: Check Results and Apply Azure-Specific Policies
+      - name: Check Results
         run: |
           if [ "${{ env.high_severity_count }}" -gt 0 ]; then
-            echo "::error::Found ${{ env.high_severity_count }} high severity Azure security issues!"
-            cat azure-high-severity.txt
+            echo "::error::Found ${{ env.high_severity_count }} high severity security issues!"
+            cat scan-report.txt
             exit 1
           fi
           if [ "${{ env.medium_severity_count }}" -gt 5 ]; then
-            echo "::warning::Found more than 5 medium severity Azure security issues"
+            echo "::warning::Found more than 5 medium severity issues. Review scan-report.txt for details."
           fi
