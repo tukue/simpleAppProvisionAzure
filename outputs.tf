@@ -35,12 +35,34 @@
 //   sensitive = true
 // }
 
+# Resource Group Outputs
+output "resource_group_name" {
+  value = azurerm_resource_group.rg.name
+}
+
+# Networking Outputs
+output "vnet_id" {
+  value = module.networking.vnet_id
+}
+
+output "app_subnet_id" {
+  value = module.networking.app_subnet_id
+}
+
+# SQL Server Outputs
 output "sql_server_id" {
-  value = module.database.sql_server_id
+  description = "ID of the SQL Server"
+  value       = module.database.sql_server_id
 }
 
 output "sql_server_name" {
-  value = module.database.sql_server_name
+  description = "Name of the SQL Server"
+  value       = module.database.sql_server_name
+}
+
+# Monitoring Outputs
+output "workspace_id" {
+  value = module.monitoring.workspace_id
 }
 
 
