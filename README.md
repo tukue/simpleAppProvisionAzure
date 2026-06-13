@@ -1,5 +1,9 @@
 # Azure Infrastructure with Terraform
 
+## Business Problem
+
+Organizations deploying applications to Azure often struggle with manually provisioning and configuring cloud infrastructure — a process that is error-prone, inconsistent across environments, and difficult to reproduce. This project solves that problem by providing an Infrastructure as Code (IaC) solution that automates the deployment of a secure, production-ready Azure environment. It ensures consistency across dev, staging, and production, enforces security best practices (network isolation, Key Vault for secrets, Bastion for access), and reduces deployment time from days to minutes.
+
 This project deploys a secure Azure infrastructure consisting of Linux VM Scale Sets, SQL Database, and Key Vault integration with proper networking and security configurations.
 
 ## Architecture
